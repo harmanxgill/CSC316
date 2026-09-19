@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netflix Maturity Heatmap</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:           #f9f9f7;
+    --surface:        #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --border:         rgba(11,11,11,0.10);
+    --gridline:       #e1e0d9;
+    /* Sequential blue ramp, light -> dark. Darker always means more mature,
+       in both themes. Every step pairs with an ink colour above 4.5:1. */
+    --r0:#cde2fb; --r1:#b7d3f6; --r2:#9ec5f4; --r3:#86b6ef; --r4:#6da7ec;
+    --r5:#5598e7; --r6:#3987e5; --r7:#256abf; --r8:#1c5cab; --r9:#184f95;
+    --r10:#104281; --r11:#0d366b;
+    --i0:#0b0b0b; --i1:#0b0b0b; --i2:#0b0b0b; --i3:#0b0b0b; --i4:#0b0b0b;
+    --i5:#0b0b0b; --i6:#0b0b0b; --i7:#ffffff; --i8:#ffffff; --i9:#ffffff;
+    --i10:#ffffff; --i11:#ffffff;
+    --cell-ring: none;
+    --low-fade: 34%;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface:        #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --border:         rgba(255,255,255,0.10);
+      --gridline:       #2c2c2a;
+      /* Ramp is unchanged. A hairline ring keeps the darkest cells from
+         dissolving into the dark surface. */
+      --cell-ring: 0 0 0 1px rgba(255,255,255,0.14);
+      --low-fade: 40%;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    padding: 20px 22px 16px;
+    overflow: hidden;                 /* the whole thing fits one screen */
+    display: flex; flex-direction: column;
+    background: var(--page);
+    color: var(--text-primary);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    flex: 1; min-height: 0; width: 100%; max-width: 1420px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  header { flex: none; }
+  h1 { margin: 0 0 4px; font-size: 21px; line-height: 1.2; letter-spacing: -0.012em; font-weight: 650; }
+  .sub { margin: 0; max-width: 108ch; color: var(--text-secondary); font-size: 13px; line-height: 1.45; }
+  .sub b { color: var(--text-primary); font-weight: 600; }
+
+  .card {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px 12px;
+  }
+
+  /* ---- Legend row ---- */
+  .legend { flex: none; display: flex; align-items: flex-end; gap: 26px; flex-wrap: wrap; }
+  .legend-title { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+  .scale { width: 220px; }
+  .scale-bar {
+    height: 10px; border-radius: 3px; border: 1px solid var(--border);
+    background: linear-gradient(to right,
+      var(--r0), var(--r2), var(--r4), var(--r6), var(--r8), var(--r9), var(--r11));
+  }
+  .scale-ticks {
+    display: flex; justify-content: space-between;
+    margin-top: 3px; font-size: 10.5px; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .key { font-size: 11.5px; color: var(--text-secondary); max-width: 46ch; line-height: 1.4; }
+  .key .chip {
+    display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--r5) var(--low-fade), var(--surface));
+    vertical-align: -3px; position: relative; margin-right: 5px;
+  }
+  .key .chip::after {
+    content: ""; position: absolute; top: 2px; right: 2px;
+    width: 4px; height: 4px; border-radius: 50%; background: var(--surface);
+  }
+
+  /* ---- Body: chart + method notes side by side ---- */
+  .content {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: minmax(0,1fr) 288px; gap: 22px;
+  }
+  .chartcol { min-height: 0; display: flex; flex-direction: column; }
+
+  .grid {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(128px, max-content) repeat(7, minmax(46px, 1fr)) 26px minmax(56px, 78px);
+    grid-template-rows: auto repeat(12, minmax(0, 1fr));
+    gap: 2px;                          /* 2px surface gap between fills */
+  }
+  .colhead {
+    font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+    text-align: center; padding-bottom: 5px; font-variant-numeric: tabular-nums;
+    align-self: end;
+  }
+  .colhead.overall { color: var(--text-primary); }
+  /* The Overall column is a summary, not a point in time: a wider gutter plus a
+     rule separates it from the 2015-2021 timeline. */
+  .grid > .spacer {
+    background: linear-gradient(var(--gridline), var(--gridline)) center / 1px 100% no-repeat;
+  }
+  .grid > .colhead.spacer { background: none; }
+  .rowhead {
+    display: flex; flex-direction: column; justify-content: center;
+    padding-right: 10px; font-size: 12px; line-height: 1.2; min-width: 0;
+  }
+  .rowhead .n { color: var(--text-muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .cell {
+    position: relative; height: 100%; min-height: 0;
+    border-radius: 4px; box-shadow: var(--cell-ring);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+    cursor: default; border: 0; padding: 0; font-family: inherit;
+    background: var(--c); color: var(--ink);
+  }
+  .cell:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+  /* Low-sample cells are mixed back toward the surface so a percentage off 7
+     titles does not read as loudly as one off 700. Mixing the fill rather than
+     fading the whole cell keeps the label legible. The dot and the tooltip
+     counts stay. */
+  .cell.low {
+    background: color-mix(in srgb, var(--c) var(--low-fade), var(--surface));
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: none;
+  }
+  .cell.low::after {
+    content: ""; position: absolute; top: 3px; right: 3px;
+    width: 4px; height: 4px; border-radius: 50%; background: var(--surface);
+  }
+  .cell.overall { box-shadow: 0 0 0 1px var(--border); }
+  .axis-label { flex: none; margin-top: 6px; text-align: center; font-size: 11px; color: var(--text-muted); }
+
+  /* ---- Method notes ---- */
+  .notes { min-height: 0; border-left: 1px solid var(--gridline); padding-left: 20px; }
+  .notes h2 { margin: 0 0 8px; font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+  .notes p { margin: 0 0 8px; font-size: 11.5px; line-height: 1.42; color: var(--text-secondary); }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: var(--text-primary); font-weight: 600; }
+  .notes code {
+    font: 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--page); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 3px;
+  }
+
+  /* ---- Tooltip ---- */
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; opacity: 0;
+    transition: opacity .08s linear;
+    background: var(--surface); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; line-height: 1.45;
+    box-shadow: 0 6px 20px rgba(0,0,0,.18); max-width: 230px;
+  }
+  #tip .t-sub { color: var(--text-secondary); }
+  #tip .t-warn { color: var(--text-muted); font-style: italic; }
+
+  /* Shorter screens: give the chart its height back by tightening the chrome. */
+  @media (max-height: 800px) {
+    body { padding: 14px 18px 11px; }
+    .wrap { gap: 9px; }
+    .card { padding: 11px 15px 9px; gap: 9px; }
+    h1 { font-size: 19px; margin-bottom: 3px; }
+    .sub { font-size: 12px; line-height: 1.4; }
+    .cell { font-size: 11.5px; }
+    .rowhead { font-size: 11.5px; }
+    .scale { width: 190px; }
+    .axis-label { margin-top: 4px; }
+  }
+  @media (max-height: 700px) {
+    h1 { font-size: 18px; }
+    .sub { font-size: 11.5px; }
+    .cell, .rowhead { font-size: 11px; }
+    .rowhead .n { font-size: 10px; }
+    .notes p { font-size: 11px; line-height: 1.38; margin-bottom: 6px; }
+  }
+  /* Below this size one screen is not enough, so allow scrolling rather than
+     clipping the content. */
+  @media (max-width: 1100px), (max-height: 600px) {
+    body { overflow: auto; height: auto; min-height: 100%; }
+    .content { grid-template-columns: minmax(0,1fr); }
+    .notes { border-left: 0; border-top: 1px solid var(--gridline); padding: 14px 0 0; }
+    .grid { grid-template-rows: auto repeat(12, 34px); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Maturity trends diverged across Netflix genres</h1>
+    <p class="sub">
+      Each cell is the share of titles rated <b>Mature</b> (R, NC-17, TV-MA) among all rated titles
+      Netflix added that year. Darker means a bigger mature share. From 2017 on, <b>TV genres grew more
+      mature</b> (TV Dramas 32% to 63%, International TV Shows 28% to 60%) while <b>film genres grew
+      less mature</b> (Thrillers 85% to 62%, Comedies 48% to 38%).
+    </p>
+  </header>
+
+  <div class="card">
+    <div class="legend">
+      <div class="scale">
+        <div class="legend-title">Mature share of titles added (%)</div>
+        <div class="scale-bar" role="img" aria-label="Colour scale for mature share, 0 percent at the left rising to 100 percent at the right"></div>
+        <div class="scale-ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+      </div>
+      <div class="key">
+        <span class="chip" aria-hidden="true"></span>Faded cells with a dot rest on
+        <b>fewer than 20 titles</b>. Read those percentages loosely. Hover any cell for its counts.
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="chartcol">
+        <div class="grid" id="grid" role="table" aria-label="Mature share by genre and year"></div>
+        <div class="axis-label">Year added to Netflix</div>
+      </div>
+
+      <div class="notes">
+        <h2>Method</h2>
+        <p><b>Maturity groups.</b> Kids: TV-Y, TV-Y7, TV-Y7-FV. Family: G, TV-G, PG, TV-PG.
+          Teen: PG-13, TV-14. Mature: R, NC-17, TV-MA. Each cell is the Mature count divided by
+          the total across all four groups for that genre and year.</p>
+        <p><b>Multi-genre counting.</b> <code>listed_in</code> holds a comma-separated list, so a
+          title counts once in every genre it lists. A title tagged &ldquo;Dramas, Thrillers&rdquo;
+          appears in both rows. Rows overlap and do not add up to the catalog, and each row has its
+          own denominator. The 12 genres shown cover <span id="m-obs"></span> genre-title pairings
+          out of <span id="m-genres"></span> genres in the data.</p>
+        <p><b>Excluded.</b> <span id="m-excl"></span></p>
+        <p><b>Year</b> comes from <code>date_added</code>, the date Netflix added the title, not
+          <code>release_year</code>, so this tracks what Netflix acquired rather than what studios
+          produced. <b>Overall</b> pools all seven years for that genre.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = {"years":[2015,2016,2017,2018,2019,2020,2021],"meta":{"rowsTotal":8807,"titlesKept":8657,"excluded":{"rating_duration":3,"outside_window":51,"rating_unrated":83,"rating_missing":4,"no_date":9},"genresTotal":42,"genresShown":12,"genreObsShown":13657},"genres":[["Independent Movies",738,538,[7,7],[26,20],[109,82],[159,119],[200,137],[148,113],[89,60]],["Thrillers",571,392,[1,1],[13,11],[66,56],[111,81],[135,87],[133,86],[112,70]],["TV Dramas",754,429,[8,2],[43,20],[129,41],[109,63],[164,104],[164,113],[137,86]],["International TV Shows",1346,714,[3,0],[85,34],[203,56],[214,125],[335,182],[277,179],[229,138]],["Dramas",2382,1201,[10,9],[58,46],[280,160],[526,222],[561,297],[535,267],[412,200]],["Action & Adventure",848,421,[2,1],[15,8],[95,48],[169,83],[201,95],[170,89],[196,97]],["TV Comedies",570,265,[8,3],[40,13],[62,19],[99,53],[117,64],[126,61],[118,52]],["International Movies",2712,1229,[6,4],[72,47],[384,195],[658,263],[609,286],[575,246],[408,188]],["Documentaries",837,344,[11,3],[56,19],[201,75],[165,78],[187,79],[118,48],[99,42]],["Comedies",1654,612,[12,5],[43,26],[173,83],[293,111],[418,144],[416,130],[299,113]],["Romantic Movies",612,205,[1,1],[7,6],[61,28],[108,28],[148,44],[173,60],[114,38]],["Children & Family Movies",633,1,[11,0],[20,0],[78,0],[85,0],[147,0],[170,0],[122,1]]]};
+
+const YEARS = DATA.years;
+const grid = document.getElementById('grid');
+const tip = document.getElementById('tip');
+
+// Percentage -> ramp step 0..11 (sequential, one hue, light -> dark)
+const step = pct => Math.min(11, Math.max(0, Math.round(pct / 100 * 11)));
+const pctOf = (m, n) => n ? (m / n) * 100 : null;
+const fmt = p => Math.round(p) + '%';
+
+function cellEl(name, year, n, m, isOverall) {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'cell' + (isOverall ? ' overall' : '');
+  el.setAttribute('role', 'cell');
+  if (!n) {
+    el.style.setProperty('--c', 'var(--gridline)');
+    el.style.setProperty('--ink', 'var(--text-muted)');
+    el.textContent = '\u2013';
+    el.dataset.tip = '<b>' + name + '</b><br><span class="t-sub">' + year + ': no rated titles added</span>';
+    return el;
+  }
+  const p = pctOf(m, n), s = step(p);
+  el.style.setProperty('--c', 'var(--r' + s + ')');
+  el.style.setProperty('--ink', 'var(--i' + s + ')');
+  el.textContent = fmt(p);
+  const low = n < 20 && !isOverall;
+  if (low) el.classList.add('low');
+  el.setAttribute('aria-label', name + ', ' + year + ': ' + fmt(p) + ' mature, ' + m + ' of ' + n + ' titles' + (low ? ', small sample' : ''));
+  el.dataset.tip =
+    '<b>' + name + ' · ' + year + '</b><br>' +
+    '<b>' + fmt(p) + '</b> mature <span class="t-sub">(' + m + ' of ' + n + ' titles)</span>' +
+    (low ? '<br><span class="t-warn">Only ' + n + ' title' + (n === 1 ? '' : 's') + ', so this percentage is unstable</span>' : '');
+  return el;
+}
+
+function head(txt, cls) {
+  const d = document.createElement('div');
+  d.className = cls || 'colhead';
+  d.textContent = txt;
+  return d;
+}
+
+function render() {
+  grid.append(head('', 'colhead'));
+  YEARS.forEach(y => grid.append(head(String(y))));
+  grid.append(head('', 'colhead spacer'));
+  grid.append(head('Overall', 'colhead overall'));
+
+  DATA.genres.forEach(g => {
+    const [name, total, mature] = g;
+    const rh = document.createElement('div');
+    rh.className = 'rowhead';
+    rh.setAttribute('role', 'rowheader');
+    rh.innerHTML = '<span>' + name + '</span><span class="n">' + total.toLocaleString() + ' titles</span>';
+    grid.append(rh);
+    g.slice(3).forEach((c, i) => grid.append(cellEl(name, YEARS[i], c[0], c[1], false)));
+    grid.append(head('', 'spacer'));
+    grid.append(cellEl(name, 'all seven years', total, mature, true));
+  });
+}
+
+function renderMeta() {
+  const m = DATA.meta, e = m.excluded;
+  document.getElementById('m-obs').textContent = m.genreObsShown.toLocaleString();
+  document.getElementById('m-genres').textContent = m.genresTotal;
+  document.getElementById('m-excl').textContent =
+    e.rating_unrated + ' titles rated NR or UR, ' + e.rating_missing + ' with a blank rating, ' +
+    e.rating_duration + ' where the rating column holds a duration such as "74 min", ' +
+    e.no_date + ' with no date_added, and ' + e.outside_window +
+    ' added outside 2015 to 2021. That leaves ' + m.titlesKept.toLocaleString() +
+    ' of ' + m.rowsTotal.toLocaleString() + ' titles.';
+}
+
+// Hover / focus tooltip
+function showTip(el) {
+  tip.innerHTML = el.dataset.tip;
+  tip.style.opacity = '1';
+  const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  let x = Math.max(8, Math.min(r.left + r.width / 2 - t.width / 2, innerWidth - t.width - 8));
+  let y = r.top - t.height - 8;
+  if (y < 8) y = r.bottom + 8;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+const hideTip = () => { tip.style.opacity = '0'; };
+grid.addEventListener('mouseover', e => { const c = e.target.closest('.cell'); if (c) showTip(c); });
+grid.addEventListener('mouseout', e => { if (e.target.closest('.cell')) hideTip(); });
+grid.addEventListener('focusin', e => { const c = e.target.closest('.cell'); if (c) showTip(c); });
+grid.addEventListener('focusout', hideTip);
+addEventListener('scroll', hideTip, true);
+
+render();
+renderMeta();
+</script>
+</body>
+</html>
