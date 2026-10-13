@@ -83,6 +83,17 @@
 		{/each}
 		</g>
 
+		{#if genres.length === 0}
+			<text
+				class="empty"
+				x={(margin.left + width - margin.right) / 2}
+				y={(margin.top + height - margin.bottom) / 2}
+				text-anchor="middle"
+			>
+				No songs in the selected years
+			</text>
+		{/if}
+
 		<text class="axis-label" x={(margin.left + width - margin.right) / 2} y={height - 6} text-anchor="middle">
 			Number of #1 songs
 		</text>

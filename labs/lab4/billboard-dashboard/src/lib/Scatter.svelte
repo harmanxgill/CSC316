@@ -72,6 +72,17 @@
 			<circle class="mark" cx={x(d.danceability)} cy={y(d.energy)} r={radius} fill-opacity={opacityFor(d)} />
 		{/each}
 
+		{#if points.length === 0}
+			<text
+				class="empty"
+				x={(margin.left + width - margin.right) / 2}
+				y={(margin.top + height - margin.bottom) / 2}
+				text-anchor="middle"
+			>
+				No songs to plot in the selected years
+			</text>
+		{/if}
+
 		<text class="axis-label" x={(margin.left + width - margin.right) / 2} y={height - 6} text-anchor="middle">
 			Danceability (0 to 100)
 		</text>

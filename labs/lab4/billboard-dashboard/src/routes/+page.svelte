@@ -17,6 +17,20 @@
 	// Shared linking state, owned here. GenreBars sets it; Scatter and GenreBars read it.
 	let hoveredGenre = $state(null);
 
+	// Shared filter state, owned here. Timeline's brush sets it; null means all years.
+	let yearRange = $state(null);
+	let filtered = $derived(
+		yearRange ? songs.filter((d) => d.year >= yearRange[0] && d.year <= yearRange[1]) : songs
+	);
+
+	const yearLabel = $derived(
+		!yearRange
+			? null
+			: yearRange[0] === yearRange[1]
+				? `${yearRange[0]}`
+				: `${yearRange[0]} to ${yearRange[1]}`
+	);
+
 	// Blank or non-numeric cells become null, never 0.
 	function toNumber(value) {
 		const text = (value ?? '').trim();
@@ -85,12 +99,31 @@
 	{:else if songs.length === 0}
 		<p class="status">The dataset loaded but contains no songs.</p>
 	{:else}
-		<KpiRow data={songs} />
+		<KpiRow data={filtered} />
 
 		<section class="panel">
-			<h2>#1 songs per year</h2>
-			<p class="note">Counts songs that reached #1 in each year, not weeks spent at #1.</p>
-			<Timeline data={songs} />
+			<div class="panel-head">
+				<div>
+					<h2>#1 songs per year</h2>
+					<p class="note">
+						Drag across years to filter the dashboard. Bars count songs that reached #1, not weeks at #1.
+					</p>
+				</div>
+				<div class="selection">
+					<span aria-live="polite">
+						{#if yearRange}
+							Selected: <strong>{yearLabel}</strong>
+							({filtered.length} {filtered.length === 1 ? 'song' : 'songs'})
+						{:else}
+							All years
+						{/if}
+					</span>
+					<button type="button" disabled={!yearRange} onclick={() => (yearRange = null)}>
+						Clear selection
+					</button>
+				</div>
+			</div>
+			<Timeline data={songs} {yearRange} onbrush={(range) => (yearRange = range)} />
 		</section>
 
 		<div class="bottom">
@@ -99,12 +132,12 @@
 				<p class="note">
 					Hover a genre to highlight its songs. Primary genre is the first one listed; blank is "Unlabeled".
 				</p>
-				<GenreBars data={songs} {hoveredGenre} onhover={(genre) => (hoveredGenre = genre)} />
+				<GenreBars data={filtered} {hoveredGenre} onhover={(genre) => (hoveredGenre = genre)} />
 			</section>
 
 			<section class="panel">
 				<h2>Danceability and energy</h2>
-				<Scatter data={songs} {hoveredGenre} />
+				<Scatter data={filtered} {hoveredGenre} />
 			</section>
 		</div>
 	{/if}
@@ -136,6 +169,43 @@
 		color: var(--ink-muted);
 	}
 
+	.panel-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 12px;
+	}
+
+	.selection {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex: none;
+		font-size: 0.8125rem;
+		color: var(--ink-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.selection strong {
+		color: var(--ink);
+	}
+
+	button {
+		font: inherit;
+		color: var(--ink);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		padding: 4px 10px;
+		cursor: pointer;
+	}
+
+	button:disabled {
+		color: var(--ink-muted);
+		opacity: 0.6;
+		cursor: default;
+	}
+
 	.bottom {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -152,6 +222,10 @@
 
 		.bottom {
 			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.panel-head {
+			flex-direction: column;
 		}
 
 		main :global(.chart) {
