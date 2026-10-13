@@ -1,0 +1,108 @@
+:root {
+	--surface: #f6f7f9;
+	--panel: #ffffff;
+	--border: #e1e4ea;
+	--ink: #1c2330;
+	--ink-muted: #5d6675;
+	--grid: #e6e9ee;
+	--mark: #2f6fb3;
+	--error: #b3261e;
+	color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--surface: #14171c;
+		--panel: #1c2027;
+		--border: #2c323c;
+		--ink: #e8ebf0;
+		--ink-muted: #9aa3b2;
+		--grid: #2a2f38;
+		--mark: #6ea8e6;
+		--error: #f2877f;
+	}
+}
+
+body {
+	margin: 0;
+	background: var(--surface);
+	color: var(--ink);
+	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+	line-height: 1.4;
+}
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 12px 16px;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.panel h2 {
+	margin: 0;
+	font-size: 1rem;
+}
+
+.panel .note {
+	margin: 2px 0 0;
+	font-size: 0.8125rem;
+	color: var(--ink-muted);
+}
+
+/* The chart fills whatever height its panel has left; the svg is taken out of flow
+   so its own size never feeds back into that measurement. */
+.chart {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	margin-top: 6px;
+}
+
+.chart svg {
+	position: absolute;
+	inset: 0;
+	display: block;
+	overflow: visible;
+}
+
+.chart .mark {
+	fill: var(--mark);
+}
+
+/* D3 draws the axes, so these rules cannot be component-scoped. */
+.chart .axis text {
+	fill: var(--ink-muted);
+	font-size: 11px;
+	font-family: inherit;
+}
+
+.chart .axis .domain {
+	stroke: var(--border);
+}
+
+.chart .axis .tick line {
+	stroke: var(--border);
+}
+
+.chart .axis.grid .domain {
+	display: none;
+}
+
+.chart .axis.grid .tick line {
+	stroke: var(--grid);
+}
+
+.chart .axis-label {
+	fill: var(--ink-muted);
+	font-size: 12px;
+}
+
+.chart .value-label {
+	fill: var(--ink);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
