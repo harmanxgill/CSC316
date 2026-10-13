@@ -14,6 +14,9 @@
 	let loading = $state(true);
 	let error = $state(null);
 
+	// Shared linking state, owned here. GenreBars sets it; Scatter and GenreBars read it.
+	let hoveredGenre = $state(null);
+
 	// Blank or non-numeric cells become null, never 0.
 	function toNumber(value) {
 		const text = (value ?? '').trim();
@@ -93,13 +96,15 @@
 		<div class="bottom">
 			<section class="panel">
 				<h2>#1 songs by primary genre</h2>
-				<p class="note">Primary genre is the first genre listed. Songs with no genre are "Unlabeled".</p>
-				<GenreBars data={songs} />
+				<p class="note">
+					Hover a genre to highlight its songs. Primary genre is the first one listed; blank is "Unlabeled".
+				</p>
+				<GenreBars data={songs} {hoveredGenre} onhover={(genre) => (hoveredGenre = genre)} />
 			</section>
 
 			<section class="panel">
 				<h2>Danceability and energy</h2>
-				<Scatter data={songs} />
+				<Scatter data={songs} {hoveredGenre} />
 			</section>
 		</div>
 	{/if}

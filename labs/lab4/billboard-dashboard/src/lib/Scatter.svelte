@@ -1,10 +1,14 @@
 <script>
 	import * as d3 from 'd3';
 
-	let { data } = $props();
+	let { data, hoveredGenre = null } = $props();
 
 	const margin = { top: 8, right: 16, bottom: 40, left: 56 };
 	const radius = 2.5;
+
+	const baseOpacity = 0.35;
+	const matchOpacity = 1;
+	const dimOpacity = 0.1;
 
 	let width = $state(500);
 	let height = $state(356);
@@ -28,6 +32,12 @@
 			.domain([0, 100])
 			.range([height - margin.bottom, margin.top])
 	);
+
+	// Linking only changes opacity. Every dot stays in the DOM at the same position.
+	function opacityFor(d) {
+		if (hoveredGenre == null) return baseOpacity;
+		return d.genre === hoveredGenre ? matchOpacity : dimOpacity;
+	}
 
 	$effect(() => {
 		if (!xAxis || !yAxis) return;
@@ -59,7 +69,7 @@
 		<g class="axis grid" bind:this={yAxis} transform="translate({margin.left},0)"></g>
 
 		{#each points as d, i (i)}
-			<circle class="mark" cx={x(d.danceability)} cy={y(d.energy)} r={radius} fill-opacity="0.35" />
+			<circle class="mark" cx={x(d.danceability)} cy={y(d.energy)} r={radius} fill-opacity={opacityFor(d)} />
 		{/each}
 
 		<text class="axis-label" x={(margin.left + width - margin.right) / 2} y={height - 6} text-anchor="middle">

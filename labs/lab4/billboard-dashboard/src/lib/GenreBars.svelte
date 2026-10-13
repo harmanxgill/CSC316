@@ -1,7 +1,7 @@
 <script>
 	import * as d3 from 'd3';
 
-	let { data } = $props();
+	let { data, hoveredGenre = null, onhover } = $props();
 
 	const margin = { top: 4, right: 44, bottom: 40, left: 116 };
 
@@ -54,23 +54,57 @@
 	<svg {width} {height} role="img" aria-label="Bar chart of the number of #1 songs by primary genre">
 		<g class="axis grid" bind:this={xAxis} transform="translate(0,{height - margin.bottom})"></g>
 
-		{#each genres as d (d.genre)}
-			<rect
-				class="mark"
-				x={x(0)}
-				y={y(d.genre)}
-				width={x(d.count) - x(0)}
-				height={y.bandwidth()}
-			/>
-			<text class="value-label" x={x(d.count) + 6} y={y(d.genre) + y.bandwidth() / 2} dy="0.35em">
-				{d.count}
-			</text>
-		{/each}
-
 		<g class="axis grid" bind:this={yAxis} transform="translate({margin.left},0)"></g>
+
+		<g role="list">
+		{#each genres as d (d.genre)}
+			<!-- The hit area covers the whole row, label included, so one-song genres are easy to hover
+			     and moving between rows never passes through a gap. -->
+			<g
+				class="row"
+				class:hovered={d.genre === hoveredGenre}
+				role="listitem"
+				aria-label="{d.genre}: {d.count} {d.count === 1 ? 'song' : 'songs'}"
+				onmouseenter={() => onhover?.(d.genre)}
+				onmouseleave={() => onhover?.(null)}
+			>
+				<rect class="hit" x="0" y={y(d.genre) - (y.step() - y.bandwidth()) / 2} {width} height={y.step()} />
+				<rect
+					class="mark"
+					x={x(0)}
+					y={y(d.genre)}
+					width={x(d.count) - x(0)}
+					height={y.bandwidth()}
+				/>
+				<text class="value-label" x={x(d.count) + 6} y={y(d.genre) + y.bandwidth() / 2} dy="0.35em">
+					{d.count}
+				</text>
+			</g>
+		{/each}
+		</g>
 
 		<text class="axis-label" x={(margin.left + width - margin.right) / 2} y={height - 6} text-anchor="middle">
 			Number of #1 songs
 		</text>
 	</svg>
 </div>
+
+<style>
+	.hit {
+		fill: transparent;
+	}
+
+	.row.hovered .hit {
+		fill: var(--highlight-band);
+	}
+
+	.row.hovered .mark {
+		fill: var(--mark-strong);
+		stroke: var(--ink);
+		stroke-width: 1.5;
+	}
+
+	.row.hovered .value-label {
+		font-weight: 700;
+	}
+</style>

@@ -6,6 +6,8 @@
 	--ink-muted: #5d6675;
 	--grid: #e6e9ee;
 	--mark: #2f6fb3;
+	--mark-strong: #1d4f86;
+	--highlight-band: rgba(28, 35, 48, 0.07);
 	--error: #b3261e;
 	color-scheme: light dark;
 }
@@ -19,6 +21,8 @@
 		--ink-muted: #9aa3b2;
 		--grid: #2a2f38;
 		--mark: #6ea8e6;
+		--mark-strong: #a9cdf5;
+		--highlight-band: rgba(232, 235, 240, 0.08);
 		--error: #f2877f;
 	}
 }
